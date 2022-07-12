@@ -7,3 +7,7 @@ GBA-V
 *.dylib
 *.dll
 vls.log
+
+# Roms and bios
+gba_bios.bin
+roms/
