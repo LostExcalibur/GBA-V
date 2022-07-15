@@ -1,6 +1,5 @@
 module sysbus
 
-import encoding.binary
 import cartridge
 
 pub const (
@@ -23,24 +22,27 @@ pub:
 	cartridge cartridge.Cartridge
 }
 
-pub interface Bus {
-	read_8(u32) u8
-	read_16(u32) u16
-	read_32(u32) u32
-mut:
-	write_8(u32, u8)
-	write_16(u32, u16)
-	write_32(u32, u32)
-}
+// pub interface Bus {
+// 	read_8(u32) u8
+// 	read_16(u32) u16
+// 	read_32(u32) u32
+// mut:
+// 	write_8(u32, u8)
+// 	write_16(u32, u16)
+// 	write_32(u32, u32)
+// }
 
+[inline]
 pub fn (bus Sysbus) read_32(addr u32) u32 {
-	return binary.little_endian_u32(bus.bios_rom[addr..addr + 4])
+	return bus.read_16(addr) | (u32(bus.read_16(addr + 2)) << 16)
 }
 
+[inline]
 pub fn (bus Sysbus) read_16(addr u32) u16 {
-	return binary.little_endian_u16(bus.bios_rom[addr..addr + 2])
+	return bus.read_8(addr) | (u16(bus.read_8(addr + 1)) << 8)
 }
 
+[inline]
 pub fn (bus Sysbus) read_8(addr u32) u8 {
 	return bus.bios_rom[addr]
 }

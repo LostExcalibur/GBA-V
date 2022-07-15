@@ -14,3 +14,8 @@ pub enum CpuMode {
 	undefined = 0b11011
 	system = 0b11111
 }
+
+pub enum CpuPipelineAction {
+	sequential
+	branch
+}

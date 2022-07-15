@@ -2,6 +2,7 @@ module cpu
 
 import cpu.psr
 import cpu.arm
+import cpu.cpu_enums
 import sysbus
 
 pub struct Cpu {
@@ -21,7 +22,7 @@ pub fn new() Cpu {
 	return cpu
 }
 
-pub fn (cpu Cpu) get_word_size() u64 {
+pub fn (cpu Cpu) get_word_size() u32 {
 	return match cpu.cpsr.get_state() {
 		.arm { 4 }
 		.thumb { 2 }
@@ -106,22 +107,30 @@ pub fn (mut cpu Cpu) set_reg(num u32, val u32) {
 	}
 }
 
+pub fn (mut cpu Cpu) advance_pc() {
+	cpu.pc += cpu.get_word_size()
+}
+
 pub fn (mut cpu Cpu) step(bus &sysbus.Sysbus) {
-	match cpu.cpsr.get_state() {
+	action := match cpu.cpsr.get_state() {
 		.arm { cpu.step_arm(bus) }
 		.thumb { panic('Not implemented yet') }
 	}
+	if action == .sequential {
+		cpu.advance_pc()
+	}
 }
 
-pub fn (mut cpu Cpu) step_arm(bus &sysbus.Sysbus) {
+pub fn (mut cpu Cpu) step_arm(bus &sysbus.Sysbus) cpu_enums.CpuPipelineAction {
 	insn := bus.read_32(cpu.pc)
+
 	decoded := arm.new(insn, cpu.pc)
+
 	println(decoded)
 	if _unlikely_(decoded.cond != .al) {
 		if !cpu.should_execute(decoded) {
-			cpu.pc += 4
-			return
+			return .sequential
 		}
 	}
-	cpu.exec_arm(decoded, bus)
+	return cpu.exec_arm(decoded, bus)
 }

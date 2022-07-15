@@ -1,9 +1,10 @@
 module cpu
 
 import cpu.arm
+import cpu.cpu_enums
 import sysbus
 
-pub fn (mut cpu Cpu) exec_arm(insn arm.ArmInstruction, bus sysbus.Sysbus) {
+pub fn (mut cpu Cpu) exec_arm(insn &arm.ArmInstruction, bus &sysbus.Sysbus) cpu_enums.CpuPipelineAction {
 	match insn.format {
 		.branch_link {
 			println('Executing branch link')
@@ -11,6 +12,7 @@ pub fn (mut cpu Cpu) exec_arm(insn arm.ArmInstruction, bus sysbus.Sysbus) {
 				cpu.set_reg(14, cpu.pc & ~0x1)
 			}
 			cpu.pc = u32(i64(cpu.pc) + insn.branch_offset())
+			return .branch
 		}
 		.branch_exchange {
 			println('Executing branch exchange')
@@ -26,6 +28,7 @@ pub fn (mut cpu Cpu) exec_arm(insn arm.ArmInstruction, bus sysbus.Sysbus) {
 				cpu.cpsr.set_state(.arm)
 			}
 			cpu.pc = addr
+			return .branch
 		}
 		else {
 			panic('Not implement yet : $insn.format')

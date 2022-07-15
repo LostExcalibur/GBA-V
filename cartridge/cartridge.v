@@ -60,9 +60,7 @@ pub fn load_cartridge(path string) Cartridge {
 	}
 	chk = (chk - 0x19) & 0x0FF
 
-	if chk == cart.header.checksum {
-		println('Checksum validated')
-	} else {
+	if chk != cart.header.checksum {
 		println('Wrong checksum : calculated ${chk:x} but read ${cart.header.checksum:x}')
 	}
 
@@ -82,5 +80,5 @@ pub fn (cart Cartridge) read_16(addr u32) u16 {
 }
 
 pub fn (cart Cartridge) read_32(addr u32) u32 {
-	return cart.read_16(addr) | (u32(cart.read_16(addr + 2)) << 8)
+	return cart.read_16(addr) | (u32(cart.read_16(addr + 2)) << 16)
 }
