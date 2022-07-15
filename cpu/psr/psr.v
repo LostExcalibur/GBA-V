@@ -14,7 +14,7 @@ mut:
 }
 
 pub fn new(bits u32) CPSR {
-	mut arr := []u8{}
+	mut arr := []u8{len: 4}
 	binary.big_endian_put_u32(mut arr, bits)
 	mut b := bf.from_bytes(arr)
 	mut ret := CPSR{bf.bf_and(b, bf.bf_not(psr.reserved_bits_mask))}

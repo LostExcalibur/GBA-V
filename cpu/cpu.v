@@ -6,7 +6,7 @@ import sysbus
 
 pub struct Cpu {
 mut:
-	gpr [14]u32
+	gpr [15]u32
 pub mut:
 	pc   u32
 	cpsr psr.CPSR
@@ -14,15 +14,15 @@ pub mut:
 
 pub fn new() Cpu {
 	mut cpu := Cpu{
-		cpsr: psr.new(0x0000_00d3)
+		cpsr: psr.new(0x0000_00df) // Equivalent to ARM and SYSTEM
 		pc: 0
-		gpr: [14]u32{init: 0}
+		gpr: [15]u32{init: 0}
 	}
 	return cpu
 }
 
 pub fn (cpu Cpu) get_word_size() u64 {
-	return match cpu.cpsr.state() {
+	return match cpu.cpsr.get_state() {
 		.arm { 4 }
 		.thumb { 2 }
 	}
@@ -30,8 +30,11 @@ pub fn (cpu Cpu) get_word_size() u64 {
 
 pub fn (mut cpu Cpu) reset() {
 	cpu.pc = 0
-	cpu.cpsr.set_mode(.system)
+	cpu.cpsr.set_mode(.supervisor)
 	cpu.cpsr.set_state(.arm)
+
+	cpu.cpsr.set_irq_disabled(true)
+	cpu.cpsr.set_fiq_disabled(true)
 }
 
 pub fn (cpu Cpu) should_execute(insn &arm.ArmInstruction) bool {
@@ -104,7 +107,7 @@ pub fn (mut cpu Cpu) set_reg(num u32, val u32) {
 }
 
 pub fn (mut cpu Cpu) step(bus &sysbus.Sysbus) {
-	match cpu.cpsr.state() {
+	match cpu.cpsr.get_state() {
 		.arm { cpu.step_arm(bus) }
 		.thumb { panic('Not implemented yet') }
 	}
