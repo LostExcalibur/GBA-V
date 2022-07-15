@@ -45,16 +45,23 @@ pub enum ArmFormat {
 
 pub struct ArmInstruction {
 pub:
-	raw     bf.BitField
+	bits    bf.BitField
+	cond    ArmCond
+	raw     u32
 	format  ArmFormat
 	address u32
 }
 
-pub fn new(raw u32) ArmInstruction {
-	mut arr := []u8{}
-	binary.big_endian_put_u32(mut arr, raw)
+pub fn new(raw u32, addr u32) ArmInstruction {
+	mut arr := []u8{len: 4}
+	binary.little_endian_put_u32(mut arr, raw)
+	bits := bf.from_bytes(arr)
 	return ArmInstruction{
-		raw: bf.from_bytes(arr)
+		raw: raw
+		cond: ArmCond(bits.extract(0, 4))
+		bits: bits
+		format: from(raw)
+		address: addr
 	}
 }
 
@@ -94,10 +101,18 @@ pub fn from(raw u32) ArmFormat {
 	}
 }
 
-pub fn (instr ArmInstruction) get_cond() ArmCond {
-	return ArmCond(instr.raw.extract(0, 4))
+pub fn (instr ArmInstruction) sets_cond_flags() bool {
+	return instr.bits.get_bit(11) == 1
 }
 
-pub fn (instr ArmInstruction) sets_cond_flags() bool {
-	return instr.raw.get_bit(11) == 1
+pub fn (instr ArmInstruction) rn() u32 {
+	return u32(instr.bits.extract(27, 4))
+}
+
+pub fn (instr ArmInstruction) link_flag() bool {
+	return instr.bits.get_bit(7) == 1
+}
+
+pub fn (instr ArmInstruction) branch_offset() i32 {
+	return ((i64(instr.raw << 8) >> 8) << 2) + 8
 }

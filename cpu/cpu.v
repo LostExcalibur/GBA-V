@@ -2,21 +2,22 @@ module cpu
 
 import cpu.psr
 import cpu.arm
+import sysbus
 
 pub struct Cpu {
 mut:
-	gpr [15]u32
-	pc  u32
+	gpr [14]u32
 pub mut:
+	pc   u32
 	cpsr psr.CPSR
 }
 
 pub fn new() Cpu {
 	mut cpu := Cpu{
-		cpsr: psr.new(0)
+		cpsr: psr.new(0x0000_00d3)
+		pc: 0
+		gpr: [14]u32{init: 0}
 	}
-	cpu.cpsr.set_mode(.system)
-	cpu.cpsr.set_state(.arm)
 	return cpu
 }
 
@@ -33,49 +34,49 @@ pub fn (mut cpu Cpu) reset() {
 	cpu.cpsr.set_state(.arm)
 }
 
-pub fn should_execute(cond arm.ArmCond, cpsr psr.CPSR) bool {
-	return match cond {
+pub fn (cpu Cpu) should_execute(insn &arm.ArmInstruction) bool {
+	return match insn.cond {
 		.eq {
-			cpsr.z()
+			cpu.cpsr.z()
 		}
 		.ne {
-			!cpsr.z()
+			!cpu.cpsr.z()
 		}
 		.hs {
-			cpsr.c()
+			cpu.cpsr.c()
 		}
 		.lo {
-			!cpsr.c()
+			!cpu.cpsr.c()
 		}
 		.mi {
-			cpsr.n()
+			cpu.cpsr.n()
 		}
 		.pl {
-			!cpsr.n()
+			!cpu.cpsr.n()
 		}
 		.vs {
-			cpsr.v()
+			cpu.cpsr.v()
 		}
 		.vc {
-			!cpsr.v()
+			!cpu.cpsr.v()
 		}
 		.hi {
-			cpsr.c() && !cpsr.z()
+			cpu.cpsr.c() && !cpu.cpsr.z()
 		}
 		.ls {
-			!cpsr.c() || cpsr.z()
+			!cpu.cpsr.c() || cpu.cpsr.z()
 		}
 		.ge {
-			cpsr.v() == cpsr.n()
+			cpu.cpsr.v() == cpu.cpsr.n()
 		}
 		.lt {
-			cpsr.v() != cpsr.n()
+			cpu.cpsr.v() != cpu.cpsr.n()
 		}
 		.gt {
-			!cpsr.z() && (cpsr.v() == cpsr.n())
+			!cpu.cpsr.z() && (cpu.cpsr.v() == cpu.cpsr.n())
 		}
 		.le {
-			cpsr.z() || (cpsr.v() != cpsr.n())
+			cpu.cpsr.z() || (cpu.cpsr.v() != cpu.cpsr.n())
 		}
 		.al {
 			true
@@ -84,4 +85,40 @@ pub fn should_execute(cond arm.ArmCond, cpsr psr.CPSR) bool {
 			false
 		}
 	}
+}
+
+pub fn (cpu Cpu) get_reg(num u32) u32 {
+	return match num {
+		0...14 { cpu.gpr[num] }
+		15 { cpu.pc }
+		else { panic('Unknown register $num') }
+	}
+}
+
+pub fn (mut cpu Cpu) set_reg(num u32, val u32) {
+	match num {
+		0...14 { cpu.gpr[num] = val }
+		15 { cpu.pc = val }
+		else { panic('Unknown register $num') }
+	}
+}
+
+pub fn (mut cpu Cpu) step(bus &sysbus.Sysbus) {
+	match cpu.cpsr.state() {
+		.arm { cpu.step_arm(bus) }
+		.thumb { panic('Not implemented yet') }
+	}
+}
+
+pub fn (mut cpu Cpu) step_arm(bus &sysbus.Sysbus) {
+	insn := bus.read_32(cpu.pc)
+	decoded := arm.new(insn, cpu.pc)
+	println(decoded)
+	if _unlikely_(decoded.cond != .al) {
+		if !cpu.should_execute(decoded) {
+			cpu.pc += 4
+			return
+		}
+	}
+	cpu.exec_arm(decoded, bus)
 }

@@ -3,7 +3,8 @@ module cartridge
 import os
 
 pub struct Cart_Header {
-	entry_point      [4]u8
+pub:
+	entry_point      u32
 	nintendo_logo    [156]u8
 	game_title       [12]u8
 	game_code        [4]u8
@@ -19,7 +20,7 @@ pub struct Cart_Header {
 
 pub fn (header Cart_Header) str() string {
 	mut result := 'Cartridge Header :\n'
-	result += '\tEntry Point : $header.entry_point\n'
+	result += '\tEntry Point : ${header.entry_point:x}\n'
 	result += '\tNintendo logo (cut): ${header.nintendo_logo[..10]}\n'
 	result += '\tGame Title : ${header.game_title[..].bytestr()}\n'
 	result += '\tGame Code : ${header.game_code[..].bytestr()}\n'
@@ -66,4 +67,20 @@ pub fn load_cartridge(path string) Cartridge {
 	}
 
 	return cart
+}
+
+pub fn (cart Cartridge) read_8(addr u32) u8 {
+	if addr < cart.size {
+		return cart.rom_data[addr]
+	}
+	// TODO: read out of bounds or when no cartridge is loaded
+	panic('Out of bounds')
+}
+
+pub fn (cart Cartridge) read_16(addr u32) u16 {
+	return cart.read_8(addr) | (u16(cart.read_8(addr + 1)) << 8)
+}
+
+pub fn (cart Cartridge) read_32(addr u32) u32 {
+	return cart.read_16(addr) | (u32(cart.read_16(addr + 2)) << 8)
 }
