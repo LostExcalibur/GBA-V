@@ -6,9 +6,11 @@ import sysbus
 import os
 import cartridge
 
+const bios_rom_path = r'.\gba_bios.bin'
+
 fn main() {
 	cartridge := cartridge.load_cartridge(r'roms\arm.gba')
-	bios_rom_path := r'.\roms\arm.gba'
+
 	bios_rom := os.read_bytes(bios_rom_path) or { panic('err') }
 
 	bus := sysbus.Sysbus{
