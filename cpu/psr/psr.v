@@ -25,7 +25,7 @@ pub fn new(bits u32) CPSR {
 	return ret
 }
 
-pub fn (cpsr CPSR) state() cpue.CpuState {
+pub fn (cpsr CPSR) get_state() cpue.CpuState {
 	return cpue.CpuState(cpsr.raw_bits.get_bit(5))
 }
 
@@ -33,7 +33,7 @@ pub fn (mut cpsr CPSR) set_state(state cpue.CpuState) {
 	cpsr.raw_bits.set_bit_to(26, state == .thumb)
 }
 
-pub fn (cpsr CPSR) mode() cpue.CpuMode {
+pub fn (cpsr CPSR) get_mode() cpue.CpuMode {
 	// println('${cpsr.raw_bits.extract(0, 5):b}')
 	return cpue.CpuMode(cpsr.raw_bits.extract(27, 5))
 }
