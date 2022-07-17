@@ -114,5 +114,9 @@ pub fn (instr ArmInstruction) link_flag() bool {
 }
 
 pub fn (instr ArmInstruction) branch_offset() i32 {
-	return ((i64(instr.raw << 8) >> 8) << 2) + 8
+	offset := (instr.raw & 0xff_ffff)
+	m := u32(1) << 23
+	signed_offset := (offset ^ m) - m
+	return (signed_offset << 2) + 8
+	// return ((i64(instr.raw << 8) >> 8) << 2) + 8
 }

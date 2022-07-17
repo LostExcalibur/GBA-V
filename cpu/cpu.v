@@ -1,8 +1,8 @@
 module cpu
 
-import cpu.psr
 import cpu.arm
 import cpu.cpu_enums
+import cpu.psr
 import sysbus
 
 pub struct Cpu {

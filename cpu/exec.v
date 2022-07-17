@@ -30,6 +30,10 @@ pub fn (mut cpu Cpu) exec_arm(insn &arm.ArmInstruction, bus &sysbus.Sysbus) cpu_
 			cpu.pc = addr
 			return .branch
 		}
+		.software_interrupt {
+			cpu.exception(.software_interrupt, insn.address)
+			return .branch
+		}
 		else {
 			panic('Not implement yet : $insn.format')
 		}
