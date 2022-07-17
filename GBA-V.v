@@ -22,5 +22,4 @@ fn main() {
 	for {
 		cpu.step(bus)
 	}
-	// println(arm.new(cartridge.header.entry_point, sysbus.rom_ws0_addr))
 }
