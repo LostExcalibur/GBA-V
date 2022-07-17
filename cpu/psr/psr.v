@@ -13,6 +13,15 @@ mut:
 	raw_bits bf.BitField
 }
 
+pub struct BankedRegs {
+pub mut:
+	banked_r13       [6]u32  = [6]u32{init: 0}
+	banked_r14       [6]u32  = [6]u32{init: 0}
+	banked_r8_12_fiq [5]u32  = [5]u32{init: 0}
+	banked_r8_12_old [5]u32  = [5]u32{init: 0}
+	banked_spsr      [5]CPSR = [5]CPSR{init: new(0)}
+}
+
 pub fn new(bits u32) CPSR {
 	mut arr := []u8{len: 4}
 	binary.big_endian_put_u32(mut arr, bits)

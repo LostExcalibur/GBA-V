@@ -9,8 +9,10 @@ pub struct Cpu {
 mut:
 	gpr [15]u32
 pub mut:
-	pc   u32
-	cpsr psr.CPSR
+	banked_regs psr.BankedRegs
+	pc          u32
+	cpsr        psr.CPSR
+	spsr        psr.CPSR
 }
 
 pub fn new() Cpu {
@@ -18,6 +20,7 @@ pub fn new() Cpu {
 		cpsr: psr.new(0x0000_00df) // Equivalent to ARM and SYSTEM
 		pc: 0
 		gpr: [15]u32{init: 0}
+		spsr: psr.new(0)
 	}
 	return cpu
 }
@@ -30,12 +33,7 @@ pub fn (cpu Cpu) get_word_size() u32 {
 }
 
 pub fn (mut cpu Cpu) reset() {
-	cpu.pc = 0
-	cpu.cpsr.set_mode(.supervisor)
-	cpu.cpsr.set_state(.arm)
-
-	cpu.cpsr.set_irq_disabled(true)
-	cpu.cpsr.set_fiq_disabled(true)
+	cpu.exception(.reset, 0)
 }
 
 pub fn (cpu Cpu) should_execute(insn &arm.ArmInstruction) bool {
@@ -105,6 +103,37 @@ pub fn (mut cpu Cpu) set_reg(num u32, val u32) {
 		15 { cpu.pc = val }
 		else { panic('Unknown register $num') }
 	}
+}
+
+pub fn (mut cpu Cpu) change_mode(curr_mode cpu_enums.CpuMode, new_mode cpu_enums.CpuMode) {
+	next_idx := cpu_enums.bank_index(new_mode)
+	curr_idx := cpu_enums.bank_index(curr_mode)
+
+	if next_idx == curr_idx {
+		return
+	}
+
+	cpu.banked_regs.banked_r13[curr_idx] = cpu.gpr[13]
+	cpu.banked_regs.banked_r14[curr_idx] = cpu.gpr[14]
+	cpu.banked_regs.banked_spsr[curr_idx] = cpu.spsr
+
+	cpu.gpr[13] = cpu.banked_regs.banked_r13[next_idx]
+	cpu.gpr[14] = cpu.banked_regs.banked_r14[next_idx]
+	cpu.spsr = cpu.banked_regs.banked_spsr[next_idx]
+
+	if new_mode == .fiq {
+		for r in 8 .. 13 {
+			cpu.banked_regs.banked_r8_12_old[r - 8] = cpu.gpr[r]
+			cpu.gpr[r] = cpu.banked_regs.banked_r8_12_fiq[r - 8]
+		}
+	} else if curr_mode == .fiq {
+		for r in 8 .. 13 {
+			cpu.banked_regs.banked_r8_12_fiq[r - 8] = cpu.gpr[r]
+			cpu.gpr[r] = cpu.banked_regs.banked_r8_12_old[r - 8]
+		}
+	}
+
+	cpu.cpsr.set_mode(new_mode)
 }
 
 pub fn (mut cpu Cpu) advance_pc() {

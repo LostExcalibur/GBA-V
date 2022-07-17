@@ -15,6 +15,20 @@ pub enum CpuMode {
 	system = 0b11111
 }
 
+pub fn spsr_index(mode CpuMode) ?int {
+	return match mode {
+		.fiq, .irq, .supervisor, .abort, .undefined { int(mode) - 17 }
+		else { none }
+	}
+}
+
+pub fn bank_index(mode CpuMode) int {
+	return match mode {
+		.user, .system { 0 }
+		else { int(mode) - 16 }
+	}
+}
+
 pub enum CpuPipelineAction {
 	sequential
 	branch
