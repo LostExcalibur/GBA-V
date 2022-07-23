@@ -2,6 +2,7 @@ module arm
 
 import bitfield as bf
 import encoding.binary
+import cpu.cpu_enums
 
 pub enum ArmCond {
 	eq = 0b0000
@@ -51,6 +52,44 @@ pub:
 	format  ArmFormat
 	address u32
 }
+
+struct RotatedImmediate {
+pub:
+	immediate u32
+	rotate    u16
+}
+
+type ImmediateValue = u32
+
+struct ShiftAmount {
+pub:
+	amount u32
+	typ    cpu_enums.ArmShiftType
+}
+
+struct ShiftRegister {
+pub:
+	reg u32
+	typ cpu_enums.ArmShiftType
+}
+
+type RegisterShift = ShiftAmount | ShiftRegister
+
+pub struct ArmShiftedRegister {
+pub:
+	reg   u32
+	shift RegisterShift
+}
+
+fn regshift_from(raw &bf.BitField) RegisterShift {
+	typ := cpu_enums.ArmShiftType(raw.extract(26, 2))
+	if raw.get_bit(27) == 1 {
+		return ShiftRegister{u32(raw.extract(20, 4)), typ}
+	}
+	return ShiftAmount{u32(raw.extract(20, 5)), typ}
+}
+
+pub type ShiftedValue = ArmShiftedRegister | ImmediateValue | RotatedImmediate
 
 pub fn new(raw u32, addr u32) ArmInstruction {
 	mut arr := []u8{len: 4}
@@ -105,8 +144,20 @@ pub fn (instr ArmInstruction) sets_cond_flags() bool {
 	return instr.bits.get_bit(11) == 1
 }
 
-pub fn (instr ArmInstruction) rn() u32 {
+pub fn (instr ArmInstruction) rm() u32 {
 	return u32(instr.bits.extract(27, 4))
+}
+
+pub fn (instr ArmInstruction) rn() u32 {
+	return u32(instr.bits.extract(12, 4))
+}
+
+pub fn (instr ArmInstruction) rd() u32 {
+	return u32(instr.bits.extract(16, 4))
+}
+
+pub fn (instr ArmInstruction) rs() u32 {
+	return u32(instr.bits.extract(20, 4))
 }
 
 pub fn (instr ArmInstruction) link_flag() bool {
@@ -119,4 +170,19 @@ pub fn (instr ArmInstruction) branch_offset() i32 {
 	signed_offset := (offset ^ m) - m
 	return (signed_offset << 2) + 8
 	// return ((i64(instr.raw << 8) >> 8) << 2) + 8
+}
+
+pub fn (instr ArmInstruction) operand2() ShiftedValue {
+	op2 := u32(instr.bits.extract(20, 12))
+	if instr.bits.get_bit(6) == 1 { // Immediate
+		immed_8 := op2 & 0xff
+		rotate_immed := u16(instr.bits.extract(20, 4)) * 2
+		return RotatedImmediate{immed_8, rotate_immed}
+	}
+	// shifted register by register or by immediate
+	else {
+		rm := instr.rm()
+		shift := regshift_from(instr.bits)
+		return ArmShiftedRegister{rm, shift}
+	}
 }

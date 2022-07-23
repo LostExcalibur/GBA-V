@@ -33,3 +33,10 @@ pub enum CpuPipelineAction {
 	sequential
 	branch
 }
+
+pub enum ArmShiftType {
+	lsl = 0
+	lsr = 1
+	asr = 2
+	ror = 3
+}

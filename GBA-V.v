@@ -21,5 +21,6 @@ fn main() {
 	mut cpu := cpu.new()
 	for {
 		cpu.step(bus)
+		println(cpu)
 	}
 }
