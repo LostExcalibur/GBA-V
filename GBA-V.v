@@ -19,8 +19,8 @@ fn main() {
 	}
 
 	mut cpu := cpu.new()
+	cpu.set_verbose(true)
 	for {
 		cpu.step(bus)
-		println(cpu)
 	}
 }

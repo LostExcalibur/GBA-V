@@ -7,7 +7,8 @@ import sysbus
 
 pub struct Cpu {
 mut:
-	gpr [15]u32
+	gpr     [15]u32
+	verbose bool
 pub mut:
 	banked_regs psr.BankedRegs
 	pc          u32
@@ -105,6 +106,10 @@ pub fn (mut cpu Cpu) set_reg(num u32, val u32) {
 	}
 }
 
+pub fn (mut cpu Cpu) set_verbose(value bool) {
+	cpu.verbose = value
+}
+
 pub fn (mut cpu Cpu) change_mode(curr_mode cpu_enums.CpuMode, new_mode cpu_enums.CpuMode) {
 	next_idx := cpu_enums.bank_index(new_mode)
 	curr_idx := cpu_enums.bank_index(curr_mode)
@@ -154,8 +159,10 @@ pub fn (mut cpu Cpu) step_arm(bus &sysbus.Sysbus) cpu_enums.CpuPipelineAction {
 	insn := bus.read_32(cpu.pc)
 
 	decoded := arm.new(insn, cpu.pc)
+	if cpu.verbose {
+		println(decoded)
+	}
 
-	println(decoded)
 	if _unlikely_(decoded.cond != .al) {
 		if !cpu.should_execute(decoded) {
 			return .sequential

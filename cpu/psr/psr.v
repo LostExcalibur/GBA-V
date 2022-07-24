@@ -34,6 +34,13 @@ pub fn new(bits u32) CPSR {
 	return ret
 }
 
+pub fn (cpsr CPSR) str() string {
+	mut s := '{ Mode: $cpsr.get_mode(), '
+	s += 'State: $cpsr.get_state(), '
+	s += 'N: ${int(cpsr.n())}, Z: ${int(cpsr.z())}, C: ${int(cpsr.c())}, V: ${int(cpsr.v())} }'
+	return s
+}
+
 pub fn (cpsr CPSR) get_state() cpue.CpuState {
 	return cpue.CpuState(cpsr.raw_bits.get_bit(5))
 }

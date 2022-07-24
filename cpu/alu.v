@@ -1,36 +1,7 @@
 module cpu
 
-import cpu.arm
 import cpu.cpu_enums
-
-pub enum AluOpcode {
-	and = 0b0000
-	eor = 0b0001
-	sub = 0b0010
-	rsb = 0b0011
-	add = 0b0100
-	adc = 0b0101
-	sbc = 0b0110
-	rsc = 0b0111
-	tst = 0b1000
-	teq = 0b1001
-	cmp = 0b1010
-	cmn = 0b1011
-	orr = 0b1100
-	mov = 0b1101
-	bic = 0b1110
-	mvn = 0b1111
-}
-
-[inline]
-fn rotate_right(value u32, amount u32) u32 {
-	return (value >> amount) | (value << (32 - amount))
-}
-
-[inline]
-fn asr(value u32, amount u32) u32 {
-	return if value >> 31 == 1 { ~(~value >> amount) } else { value >> amount }
-}
+import cpu.regshift
 
 [inline]
 fn overflow_from_add(op1 u32, op2 u32, res u32) bool {
@@ -96,16 +67,16 @@ fn (mut cpu Cpu) asr(value u32, amount u32, flags bool, immediate bool) u32 {
 			if flags {
 				cpu.cpsr.set_c((value >> (amount - 1)) & 0x1 == 1)
 			}
-			ret = asr(value, amount)
+			ret = regshift.asr(value, amount)
 		} else {
-			ret = asr(value, 31)
+			ret = regshift.asr(value, 31)
 
 			if flags {
 				cpu.cpsr.set_c(ret & 0x1 == 1)
 			}
 		}
 	} else if immediate {
-		ret = asr(value, 31)
+		ret = regshift.asr(value, 31)
 
 		if flags {
 			cpu.cpsr.set_c(ret & 0x1 == 1)
@@ -117,7 +88,7 @@ fn (mut cpu Cpu) asr(value u32, amount u32, flags bool, immediate bool) u32 {
 fn (mut cpu Cpu) ror(value u32, amount u32, flags bool, immediate bool) u32 {
 	mut ret := u32(0)
 	if amount != 0 {
-		ret = rotate_right(value, amount)
+		ret = regshift.rotate_right(value, amount)
 		if flags {
 			cpu.cpsr.set_c(ret >> 31 == 1)
 		}
@@ -140,14 +111,14 @@ fn (mut cpu Cpu) calc_shift(value u32, amount u32, shift cpu_enums.ArmShiftType,
 	}
 }
 
-fn (mut cpu Cpu) register_shift(reg u32, shift arm.RegisterShift, flags bool) u32 {
+fn (mut cpu Cpu) register_shift(reg u32, shift regshift.RegisterShift, flags bool) u32 {
 	value := cpu.get_reg(reg)
 
 	match shift {
-		arm.ShiftAmount {
+		regshift.ShiftAmount {
 			return cpu.calc_shift(value, shift.amount, shift.typ, flags, true)
 		}
-		arm.ShiftRegister {
+		regshift.ShiftRegister {
 			if shift.reg != 15 {
 				return cpu.calc_shift(value, cpu.get_reg(shift.reg), shift.typ, flags,
 					false)

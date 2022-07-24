@@ -3,6 +3,7 @@ module arm
 import bitfield as bf
 import encoding.binary
 import cpu.cpu_enums
+import cpu.regshift
 
 pub enum ArmCond {
 	eq = 0b0000
@@ -53,43 +54,61 @@ pub:
 	address u32
 }
 
-struct RotatedImmediate {
-pub:
-	immediate u32
-	rotate    u16
+fn (insn ArmInstruction) set_flag_mark() string {
+	return if insn.sets_cond_flags() { 'S' } else { '' }
 }
 
-type ImmediateValue = u32
-
-struct ShiftAmount {
-pub:
-	amount u32
-	typ    cpu_enums.ArmShiftType
+fn (insn ArmInstruction) link_mark() string {
+	return if insn.link_flag() { 'l' } else { '' }
 }
 
-struct ShiftRegister {
-pub:
-	reg u32
-	typ cpu_enums.ArmShiftType
-}
+pub fn (insn ArmInstruction) str() string {
+	mut s := '{ '
+	s += 'Condition: $insn.cond, '
+	match insn.format {
+		.branch_exchange {
+			s += 'Bx\tR$insn.rn(), '
+		}
+		.branch_link {
+			s += 'B$insn.link_mark()\t${u32(i64(insn.address) + insn.branch_offset())}'
+		}
+		.data_processing {
+			opcode := insn.opcode()
+			rd := insn.rd()
+			rn := insn.rn()
 
-type RegisterShift = ShiftAmount | ShiftRegister
-
-pub struct ArmShiftedRegister {
-pub:
-	reg   u32
-	shift RegisterShift
-}
-
-fn regshift_from(raw &bf.BitField) RegisterShift {
-	typ := cpu_enums.ArmShiftType(raw.extract(26, 2))
-	if raw.get_bit(27) == 1 {
-		return ShiftRegister{u32(raw.extract(20, 4)), typ}
+			match opcode {
+				.mov, .mvn {
+					s += '$opcode$insn.set_flag_mark()\tR$rd, '
+				}
+				.cmp, .cmn, .teq, .tst {
+					s += '$opcode\tR$rn, '
+				}
+				else {
+					s += '$opcode$insn.set_flag_mark()\tR$rd, R$rn, '
+				}
+			}
+			operand2 := insn.operand2()
+			match operand2 {
+				regshift.RotatedImmediate {
+					value := regshift.decode_rotated_immediate(operand2) or { panic('unreachable') }
+					s += '#${value:x}'
+				}
+				regshift.ArmShiftedRegister {
+					s += '$operand2'
+				}
+				else {
+					panic('unreachable')
+				}
+			}
+		}
+		else {
+			s += '$insn.format'
+		}
 	}
-	return ShiftAmount{u32(raw.extract(20, 5)), typ}
+	s += ', Address: $insn.address }'
+	return s
 }
-
-pub type ShiftedValue = ArmShiftedRegister | ImmediateValue | RotatedImmediate
 
 pub fn new(raw u32, addr u32) ArmInstruction {
 	mut arr := []u8{len: 4}
@@ -172,17 +191,21 @@ pub fn (instr ArmInstruction) branch_offset() i32 {
 	// return ((i64(instr.raw << 8) >> 8) << 2) + 8
 }
 
-pub fn (instr ArmInstruction) operand2() ShiftedValue {
+pub fn (instr ArmInstruction) opcode() cpu_enums.AluOpcode {
+	return cpu_enums.AluOpcode(instr.bits.extract(7, 4))
+}
+
+pub fn (instr ArmInstruction) operand2() regshift.ShiftedValue {
 	op2 := u32(instr.bits.extract(20, 12))
 	if instr.bits.get_bit(6) == 1 { // Immediate
 		immed_8 := op2 & 0xff
 		rotate_immed := u16(instr.bits.extract(20, 4)) * 2
-		return RotatedImmediate{immed_8, rotate_immed}
+		return regshift.RotatedImmediate{immed_8, rotate_immed}
 	}
 	// shifted register by register or by immediate
 	else {
 		rm := instr.rm()
-		shift := regshift_from(instr.bits)
-		return ArmShiftedRegister{rm, shift}
+		shift := regshift.regshift_from(instr.bits)
+		return regshift.ArmShiftedRegister{rm, shift}
 	}
 }

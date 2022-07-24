@@ -2,10 +2,13 @@ module cpu
 
 import cpu.arm
 import cpu.cpu_enums
+import cpu.regshift
 import sysbus
 
 pub fn (mut cpu Cpu) exec_b_bl(insn &arm.ArmInstruction) cpu_enums.CpuPipelineAction {
-	println('Executing branch link')
+	if cpu.verbose {
+		println('Executing branch link')
+	}
 	if insn.link_flag() {
 		cpu.set_reg(14, cpu.pc & ~0x1)
 	}
@@ -14,7 +17,9 @@ pub fn (mut cpu Cpu) exec_b_bl(insn &arm.ArmInstruction) cpu_enums.CpuPipelineAc
 }
 
 pub fn (mut cpu Cpu) exec_bx(insn &arm.ArmInstruction) cpu_enums.CpuPipelineAction {
-	println('Executing branch exchange')
+	if cpu.verbose {
+		println('Executing branch exchange')
+	}
 	mut addr := cpu.get_reg(insn.rm())
 	// Switch to thumb
 	if insn.bits.get_bit(31) == 1 {
@@ -32,23 +37,29 @@ pub fn (mut cpu Cpu) exec_bx(insn &arm.ArmInstruction) cpu_enums.CpuPipelineActi
 
 [inline]
 pub fn (mut cpu Cpu) exec_swi(address u32) cpu_enums.CpuPipelineAction {
+	if cpu.verbose {
+		println('Executing software interrupt')
+	}
 	cpu.exception(.software_interrupt, address)
 	return .branch
 }
 
 pub fn (mut cpu Cpu) exec_data_processing(insn &arm.ArmInstruction) cpu_enums.CpuPipelineAction {
+	if cpu.verbose {
+		println('Executing data processing')
+	}
 	op1 := cpu.get_reg(insn.rn())
 	oper2 := insn.operand2()
 	rd := insn.rd()
 	flags := insn.sets_cond_flags() && rd != 15
 
 	op2 := match oper2 {
-		arm.RotatedImmediate { rotate_right(oper2.immediate, oper2.rotate) }
-		arm.ArmShiftedRegister { cpu.register_shift(oper2.reg, oper2.shift, flags) }
+		regshift.RotatedImmediate { regshift.rotate_right(oper2.immediate, oper2.rotate) }
+		regshift.ArmShiftedRegister { cpu.register_shift(oper2.reg, oper2.shift, flags) }
 		else { panic('unreachable') }
 	}
 
-	opcode := AluOpcode(insn.bits.extract(7, 4))
+	opcode := insn.opcode()
 
 	mut res := u32(0)
 
