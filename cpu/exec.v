@@ -63,25 +63,23 @@ pub fn (mut cpu Cpu) exec_data_processing(insn &arm.ArmInstruction) cpu_enums.Cp
 
 	mut res := u32(0)
 
-	unsafe {
-		match opcode {
-			.and { res = cpu.log(op1 & op2, flags) }
-			.eor { res = cpu.log(op1 ^ op2, flags) }
-			.orr { res = cpu.log(op1 | op2, flags) }
-			.mov { res = cpu.log(op2, flags) }
-			.bic { res = cpu.log(op1 & (~op2), flags) }
-			.mvn { res = cpu.log(~op2, flags) }
-			.tst { cpu.log(op1 & op2, true) }
-			.teq { cpu.log(op1 ^ op2, true) }
-			.cmn { cpu.add(op1, op2, true) }
-			.cmp { cpu.sub(op1, op2, true) }
-			.add { res = cpu.add(op1, op2, flags) }
-			.adc { res = cpu.adc(op1, op2, flags) }
-			.sub { res = cpu.sub(op1, op2, flags) }
-			.sbc { res = cpu.sbc(op1, op2, flags) }
-			.rsb { res = cpu.sub(op2, op1, flags) }
-			.rsc { res = cpu.sbc(op2, op1, flags) }
-		}
+	match opcode {
+		.and { res = cpu.log(op1 & op2, flags) }
+		.eor { res = cpu.log(op1 ^ op2, flags) }
+		.orr { res = cpu.log(op1 | op2, flags) }
+		.mov { res = cpu.log(op2, flags) }
+		.bic { res = cpu.log(op1 & (~op2), flags) }
+		.mvn { res = cpu.log(~op2, flags) }
+		.tst { cpu.log(op1 & op2, true) }
+		.teq { cpu.log(op1 ^ op2, true) }
+		.cmn { cpu.add(op1, op2, true) }
+		.cmp { cpu.sub(op1, op2, true) }
+		.add { res = cpu.add(op1, op2, flags) }
+		.adc { res = cpu.adc(op1, op2, flags) }
+		.sub { res = cpu.sub(op1, op2, flags) }
+		.sbc { res = cpu.sbc(op1, op2, flags) }
+		.rsb { res = cpu.sub(op2, op1, flags) }
+		.rsc { res = cpu.sbc(op2, op1, flags) }
 	}
 	match opcode {
 		.cmp, .cmn, .teq, .tst {}
@@ -101,7 +99,59 @@ pub fn (mut cpu Cpu) exec_data_processing(insn &arm.ArmInstruction) cpu_enums.Cp
 	return .sequential
 }
 
-pub fn (mut cpu Cpu) exec_arm(insn &arm.ArmInstruction, bus &sysbus.Sysbus) cpu_enums.CpuPipelineAction {
+pub fn (mut cpu Cpu) exec_single_data_transfer(insn &arm.ArmInstruction, mut bus sysbus.Sysbus) cpu_enums.CpuPipelineAction {
+	rn := insn.rn()
+	rd := insn.rd()
+
+	mut addr := cpu.get_reg(rn)
+
+	load := insn.bits.get_bit(11) == 1
+	write_back := insn.bits.get_bit(10) == 1
+	ubyte := insn.bits.get_bit(9) == 1
+	substracted := insn.bits.get_bit(8) == 0
+	pre_index := insn.bits.get_bit(7) == 1
+
+	encoded_offset := insn.ldr_str_offset()
+
+	mut offset := match encoded_offset {
+		regshift.ImmediateValue {
+			u32(encoded_offset)
+		}
+		regshift.ArmShiftedRegister {
+			cpu.register_shift(encoded_offset.reg, encoded_offset.shift, false)
+		}
+		else {
+			panic('Unreachable')
+		}
+	}
+
+	if substracted {
+		offset = twos_complement(offset)
+	}
+
+	if pre_index {
+		addr += offset
+	}
+
+	if load {
+		if ubyte {
+			cpu.set_reg(rd, u32(bus.read_8(addr)))
+		} else {
+			cpu.set_reg(rd, bus.read_32_rotate(addr))
+		}
+	} else {
+		value := cpu.get_reg(rd)
+
+		if ubyte {
+			bus.write_8(addr, u8(value))
+		} else {
+			bus.write_32(addr, value)
+		}
+	}
+	return .sequential
+}
+
+pub fn (mut cpu Cpu) exec_arm(insn &arm.ArmInstruction, mut bus sysbus.Sysbus) cpu_enums.CpuPipelineAction {
 	match insn.format {
 		.branch_link {
 			return cpu.exec_b_bl(insn)
@@ -114,6 +164,9 @@ pub fn (mut cpu Cpu) exec_arm(insn &arm.ArmInstruction, bus &sysbus.Sysbus) cpu_
 		}
 		.data_processing {
 			return cpu.exec_data_processing(insn)
+		}
+		.single_data_transfer {
+			return cpu.exec_single_data_transfer(insn, mut bus)
 		}
 		else {
 			panic('Not implement yet : $insn.format')

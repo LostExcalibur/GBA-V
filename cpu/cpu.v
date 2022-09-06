@@ -145,9 +145,9 @@ pub fn (mut cpu Cpu) advance_pc() {
 	cpu.pc += cpu.get_word_size()
 }
 
-pub fn (mut cpu Cpu) step(bus &sysbus.Sysbus) {
+pub fn (mut cpu Cpu) step(mut bus sysbus.Sysbus) {
 	action := match cpu.cpsr.get_state() {
-		.arm { cpu.step_arm(bus) }
+		.arm { cpu.step_arm(mut bus) }
 		.thumb { panic('Not implemented yet') }
 	}
 	if action == .sequential {
@@ -155,7 +155,7 @@ pub fn (mut cpu Cpu) step(bus &sysbus.Sysbus) {
 	}
 }
 
-pub fn (mut cpu Cpu) step_arm(bus &sysbus.Sysbus) cpu_enums.CpuPipelineAction {
+pub fn (mut cpu Cpu) step_arm(mut bus sysbus.Sysbus) cpu_enums.CpuPipelineAction {
 	insn := bus.read_32(cpu.pc)
 
 	decoded := arm.new(insn, cpu.pc)
@@ -168,5 +168,5 @@ pub fn (mut cpu Cpu) step_arm(bus &sysbus.Sysbus) cpu_enums.CpuPipelineAction {
 			return .sequential
 		}
 	}
-	return cpu.exec_arm(decoded, bus)
+	return cpu.exec_arm(decoded, mut bus)
 }

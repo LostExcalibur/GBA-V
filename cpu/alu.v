@@ -13,6 +13,11 @@ fn overflow_from_sub(op1 u32, op2 u32, res u32) bool {
 	return ((op1 ^ op2) & (op1 ^ res)) >> 31 == 1
 }
 
+[inline]
+fn twos_complement(x u32) u32 {
+	return ~x + 1
+}
+
 fn (mut cpu Cpu) lsl(value u32, amount u32, flags bool) u32 {
 	mut ret := value
 	if amount != 0 {

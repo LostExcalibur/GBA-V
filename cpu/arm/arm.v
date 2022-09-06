@@ -54,6 +54,17 @@ pub:
 	address u32
 }
 
+pub fn extract_u32(field &bf.BitField, start int, len int) u32 {
+	if start < 0 {
+		return 0
+	}
+	mut output := u32(0)
+	for i in 0 .. len {
+		output |= u32(field.get_bit(start + len - i - 1)) << i
+	}
+	return output
+}
+
 fn (insn ArmInstruction) set_flag_mark() string {
 	return if insn.sets_cond_flags() { 'S' } else { '' }
 }
@@ -106,7 +117,7 @@ pub fn (insn ArmInstruction) str() string {
 			s += '$insn.format'
 		}
 	}
-	s += ', Address: $insn.address }'
+	s += ', Address: 0x${(insn.address):x} }'
 	return s
 }
 
@@ -189,6 +200,26 @@ pub fn (instr ArmInstruction) branch_offset() i32 {
 	signed_offset := (offset ^ m) - m
 	return (signed_offset << 2) + 8
 	// return ((i64(instr.raw << 8) >> 8) << 2) + 8
+}
+
+pub fn (insn ArmInstruction) ldr_str_offset() regshift.ShiftedValue {
+	immediate := insn.bits.get_bit(6) == 0
+
+	if immediate {
+		return regshift.ImmediateValue(u32(insn.bits.extract(20, 12)))
+	} else {
+		rm := insn.rm()
+		shift := cpu_enums.ArmShiftType(insn.bits.extract(25, 2))
+		amount := u32(insn.bits.extract(20, 5))
+
+		return regshift.ArmShiftedRegister{
+			reg: rm
+			shift: regshift.ShiftAmount{
+				amount: amount
+				typ: shift
+			}
+		}
+	}
 }
 
 pub fn (instr ArmInstruction) opcode() cpu_enums.AluOpcode {
