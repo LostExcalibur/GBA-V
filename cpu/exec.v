@@ -100,6 +100,8 @@ pub fn (mut cpu Cpu) exec_data_processing(insn &arm.ArmInstruction) cpu_enums.Cp
 }
 
 pub fn (mut cpu Cpu) exec_single_data_transfer(insn &arm.ArmInstruction, mut bus sysbus.Sysbus) cpu_enums.CpuPipelineAction {
+	mut ret := cpu_enums.CpuPipelineAction.sequential
+
 	rn := insn.rn()
 	rd := insn.rd()
 
@@ -139,6 +141,10 @@ pub fn (mut cpu Cpu) exec_single_data_transfer(insn &arm.ArmInstruction, mut bus
 		} else {
 			cpu.set_reg(rd, bus.read_32_rotate(addr))
 		}
+
+		if rd == 15 {
+			ret = .branch
+		}
 	} else {
 		value := cpu.get_reg(rd)
 
@@ -148,7 +154,12 @@ pub fn (mut cpu Cpu) exec_single_data_transfer(insn &arm.ArmInstruction, mut bus
 			bus.write_32(addr, value)
 		}
 	}
-	return .sequential
+
+	if (write_back || !pre_index) && (!load || rd != rn) {
+		cpu.set_reg(rn, addr)
+	}
+
+	return ret
 }
 
 pub fn (mut cpu Cpu) exec_arm(insn &arm.ArmInstruction, mut bus sysbus.Sysbus) cpu_enums.CpuPipelineAction {

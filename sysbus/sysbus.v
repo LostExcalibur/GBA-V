@@ -1,6 +1,5 @@
 module sysbus
 
-import encoding.binary
 import cartridge
 import cpu.regshift
 
