@@ -53,13 +53,13 @@ pub fn (self ArmShiftedRegister) is_lsl0() bool {
 }
 
 pub fn (self ArmShiftedRegister) str() string {
-	reg := 'r$self.reg'
+	reg := 'R$self.reg'
 	if !self.is_lsl0() {
 		return reg
 	} else {
 		match self.shift {
 			ShiftAmount { return '$reg, $self.shift.typ, #$self.shift.amount' }
-			ShiftRegister { return '$reg, $self.shift.typ, r$self.shift.reg' }
+			ShiftRegister { return '$reg, $self.shift.typ, R$self.shift.reg' }
 		}
 	}
 }

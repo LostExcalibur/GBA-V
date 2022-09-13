@@ -30,7 +30,7 @@ pub fn (mut cpu Cpu) exception(ex Exception, link_reg u32) {
 	} else if ex == .fiq {
 		cpu_enums.CpuMode.fiq, true, true
 	} else {
-		panic('Cpu resereved instruction')
+		panic('Cpu reserved instruction')
 	}
 
 	new_bank := cpu_enums.bank_index(new_mode)
