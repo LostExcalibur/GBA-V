@@ -81,7 +81,7 @@ pub fn (insn ArmInstruction) str() string {
 			s += 'Bx\tR$insn.rn(), '
 		}
 		.branch_link {
-			s += 'B$insn.link_mark()\t${u32(i64(insn.address) + insn.branch_offset())}'
+			s += 'B$insn.link_mark()\t${u32(i64(insn.address) + insn.branch_offset()):x}'
 		}
 		.data_processing {
 			opcode := insn.opcode()
@@ -113,6 +113,34 @@ pub fn (insn ArmInstruction) str() string {
 				}
 			}
 		}
+		.single_data_transfer {
+			mnem := if insn.is_load() { 'ldr' } else { 'str' }
+			b := if insn.bits.get_bit(9) == 1 { 'b' } else { '' }
+			s += '$mnem$b\tR$insn.rd()'
+			rn := insn.rn()
+
+			s += '[R$rn'
+			offset := insn.ldr_str_offset()
+
+			offset_string := match offset {
+				regshift.ImmediateValue {
+					'#${u32(offset)}'
+				}
+				regshift.ArmShiftedRegister {
+					sign := if insn.bits.get_bit(8) == 0 { '-' } else { '' }
+					'$sign$offset'
+				}
+				else {
+					panic('unreachable')
+				}
+			}
+			if insn.bits.get_bit(7) == 1 {
+				auto_incr := if insn.bits.get_bit(10) == 1 { '!' } else { '' }
+				s += ', $offset_string]$auto_incr'
+			} else {
+				s += '], $offset_string'
+			}
+		}
 		else {
 			s += '$insn.format'
 		}
@@ -123,7 +151,7 @@ pub fn (insn ArmInstruction) str() string {
 
 pub fn new(raw u32, addr u32) ArmInstruction {
 	mut arr := []u8{len: 4}
-	binary.little_endian_put_u32(mut arr, raw)
+	binary.big_endian_put_u32(mut arr, raw)
 	bits := bf.from_bytes(arr)
 	return ArmInstruction{
 		raw: raw
@@ -168,6 +196,10 @@ pub fn from(raw u32) ArmFormat {
 	} else {
 		.undefined
 	}
+}
+
+pub fn (instr ArmInstruction) is_load() bool {
+	return instr.bits.get_bit(11) == 1
 }
 
 pub fn (instr ArmInstruction) sets_cond_flags() bool {
