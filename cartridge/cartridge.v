@@ -1,6 +1,7 @@
 module cartridge
 
 import os
+import memory
 
 pub struct Cart_Header {
 pub:
@@ -31,11 +32,9 @@ pub fn (header Cart_Header) str() string {
 }
 
 pub struct Cartridge {
-pub mut:
-	rom_data []u8
-	header   Cart_Header
-pub:
-	size u64
+	memory.Ram
+mut:
+	header Cart_Header
 }
 
 pub fn load_cartridge(path string) Cartridge {
@@ -49,14 +48,14 @@ pub fn load_cartridge(path string) Cartridge {
 	file.seek(0, .start) or { panic(err) }
 
 	mut cart := Cartridge{
-		size: u64(file_size)
+		size: u32(file_size)
 	}
 	file.read_struct<Cart_Header>(mut cart.header) or { panic(err) }
-	cart.rom_data = file.read_bytes(int(file_size))
+	cart.data = file.read_bytes(int(file_size))
 
 	mut chk := 0
 	for i in 0x0A0 .. 0x0BC + 1 {
-		chk = chk - cart.rom_data[i]
+		chk = chk - cart.data[i]
 	}
 	chk = (chk - 0x19) & 0x0FF
 
@@ -67,18 +66,18 @@ pub fn load_cartridge(path string) Cartridge {
 	return cart
 }
 
-pub fn (cart Cartridge) read_8(addr u32) u8 {
-	if addr < cart.size {
-		return cart.rom_data[addr]
-	}
-	// TODO: read out of bounds or when no cartridge is loaded
-	panic('Out of bounds')
-}
-
-pub fn (cart Cartridge) read_16(addr u32) u16 {
-	return cart.read_8(addr) | (u16(cart.read_8(addr + 1)) << 8)
-}
-
-pub fn (cart Cartridge) read_32(addr u32) u32 {
-	return cart.read_16(addr) | (u32(cart.read_16(addr + 2)) << 16)
-}
+// pub fn (cart Cartridge) read_8(addr u32) u8 {
+// 	if addr < cart.size {
+// 		return cart.rom_data[addr]
+// 	}
+// 	// TODO: read out of bounds or when no cartridge is loaded
+// 	panic('Out of bounds')
+//
+//
+// ub fn (cart Cartridge) read_16(addr u32) u16 {
+// 	return cart.read_8(addr) | (u16(cart.read_8(addr + 1)) << 8)
+//
+//
+// ub fn (cart Cartridge) read_32(addr u32) u32 {
+// 	return cart.read_16(addr) | (u32(cart.read_16(addr + 2)) << 16)
+//
