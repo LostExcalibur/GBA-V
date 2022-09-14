@@ -8,6 +8,13 @@ GBA-V
 *.dll
 vls.log
 
+# Scripts
+*.sh
+*.vsh
+
 # Roms and bios
 gba_bios.bin
 roms/
+
+# Editor specific
+.vscode/
