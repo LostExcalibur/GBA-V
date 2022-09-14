@@ -9,6 +9,7 @@ pub struct Cpu {
 mut:
 	gpr     [15]u32
 	verbose bool
+	sysbus  &sysbus.Sysbus
 pub mut:
 	banked_regs psr.BankedRegs
 	pc          u32
@@ -16,14 +17,28 @@ pub mut:
 	spsr        psr.CPSR
 }
 
-pub fn new() Cpu {
+pub fn new(mut bus sysbus.Sysbus) Cpu {
 	mut cpu := Cpu{
+		sysbus: bus
 		cpsr: psr.new(0x0000_00df) // Equivalent to ARM and SYSTEM
 		pc: 0
 		gpr: [15]u32{init: 0}
 		spsr: psr.new(0)
 	}
 	return cpu
+}
+
+pub fn (mut cpu Cpu) skip_bios() {
+	cpu.gpr[13] = 0x0300_7f00
+	cpu.pc = 0x0800_0000
+	cpu.banked_regs.banked_r13[0] = 0x0300_7f00 // USR/SYS
+	cpu.banked_regs.banked_r13[1] = 0x0300_7f00 // FIQ
+	cpu.banked_regs.banked_r13[2] = 0x0300_7fa0 // IRQ
+	cpu.banked_regs.banked_r13[3] = 0x0300_7fe0 // SVC
+	cpu.banked_regs.banked_r13[4] = 0x0300_7f00 // ABT
+	cpu.banked_regs.banked_r13[5] = 0x0300_7f00 // UND
+
+	cpu.cpsr = psr.new(0x5f)
 }
 
 pub fn (cpu Cpu) get_word_size() u32 {
@@ -145,9 +160,9 @@ pub fn (mut cpu Cpu) advance_pc() {
 	cpu.pc += cpu.get_word_size()
 }
 
-pub fn (mut cpu Cpu) step(mut bus sysbus.Sysbus) {
+pub fn (mut cpu Cpu) step() {
 	action := match cpu.cpsr.get_state() {
-		.arm { cpu.step_arm(mut bus) }
+		.arm { cpu.step_arm() }
 		.thumb { panic('Not implemented yet') }
 	}
 	if action == .sequential {
@@ -155,8 +170,8 @@ pub fn (mut cpu Cpu) step(mut bus sysbus.Sysbus) {
 	}
 }
 
-pub fn (mut cpu Cpu) step_arm(mut bus sysbus.Sysbus) cpu_enums.CpuPipelineAction {
-	insn := bus.read_32(cpu.pc)
+pub fn (mut cpu Cpu) step_arm() cpu_enums.CpuPipelineAction {
+	insn := cpu.sysbus.read_32(cpu.pc)
 
 	decoded := arm.new(insn, cpu.pc)
 	if cpu.verbose {
@@ -168,5 +183,5 @@ pub fn (mut cpu Cpu) step_arm(mut bus sysbus.Sysbus) cpu_enums.CpuPipelineAction
 			return .sequential
 		}
 	}
-	return cpu.exec_arm(decoded, mut bus)
+	return cpu.exec_arm(decoded)
 }

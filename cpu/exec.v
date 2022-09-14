@@ -99,7 +99,7 @@ pub fn (mut cpu Cpu) exec_data_processing(insn &arm.ArmInstruction) cpu_enums.Cp
 	return .sequential
 }
 
-pub fn (mut cpu Cpu) exec_single_data_transfer(insn &arm.ArmInstruction, mut bus sysbus.Sysbus) cpu_enums.CpuPipelineAction {
+pub fn (mut cpu Cpu) exec_single_data_transfer(insn &arm.ArmInstruction) cpu_enums.CpuPipelineAction {
 	mut ret := cpu_enums.CpuPipelineAction.sequential
 
 	rn := insn.rn()
@@ -107,7 +107,7 @@ pub fn (mut cpu Cpu) exec_single_data_transfer(insn &arm.ArmInstruction, mut bus
 
 	mut addr := cpu.get_reg(rn)
 
-	load := insn.bits.get_bit(11) == 1
+	load := insn.is_load()
 	write_back := insn.bits.get_bit(10) == 1
 	ubyte := insn.bits.get_bit(9) == 1
 	substracted := insn.bits.get_bit(8) == 0
@@ -137,9 +137,9 @@ pub fn (mut cpu Cpu) exec_single_data_transfer(insn &arm.ArmInstruction, mut bus
 
 	if load {
 		if ubyte {
-			cpu.set_reg(rd, u32(bus.read_8(addr)))
+			cpu.set_reg(rd, u32(cpu.sysbus.read_8(addr)))
 		} else {
-			cpu.set_reg(rd, bus.read_32_rotate(addr))
+			cpu.set_reg(rd, cpu.sysbus.read_32_rotate(addr))
 		}
 
 		if rd == 15 {
@@ -149,9 +149,9 @@ pub fn (mut cpu Cpu) exec_single_data_transfer(insn &arm.ArmInstruction, mut bus
 		value := cpu.get_reg(rd)
 
 		if ubyte {
-			bus.write_8(addr, u8(value))
+			cpu.sysbus.write_8(addr, u8(value))
 		} else {
-			bus.write_32(addr, value)
+			cpu.sysbus.write_32(addr, value)
 		}
 	}
 
@@ -162,7 +162,7 @@ pub fn (mut cpu Cpu) exec_single_data_transfer(insn &arm.ArmInstruction, mut bus
 	return ret
 }
 
-pub fn (mut cpu Cpu) exec_arm(insn &arm.ArmInstruction, mut bus sysbus.Sysbus) cpu_enums.CpuPipelineAction {
+pub fn (mut cpu Cpu) exec_arm(insn &arm.ArmInstruction) cpu_enums.CpuPipelineAction {
 	match insn.format {
 		.branch_link {
 			return cpu.exec_b_bl(insn)
@@ -177,7 +177,7 @@ pub fn (mut cpu Cpu) exec_arm(insn &arm.ArmInstruction, mut bus sysbus.Sysbus) c
 			return cpu.exec_data_processing(insn)
 		}
 		.single_data_transfer {
-			return cpu.exec_single_data_transfer(insn, mut bus)
+			return cpu.exec_single_data_transfer(insn)
 		}
 		else {
 			panic('Not implement yet : $insn.format')
